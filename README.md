@@ -2,7 +2,7 @@
 
 一個以**純 Java + Swing** 手寫實作的簡易 UML 編輯器,不依賴任何第三方框架。
 
-可在畫布上建立 UML 物件(方形 / 橢圓)、用三種連接線連結物件,並支援選取、移動、縮放、群組、自訂標籤樣式、刪除等編輯操作,以及存檔 / 讀檔與匯出 PNG。專案以三個經典物件導向設計模式(State / Composite / Factory Method)為骨架,適合作為設計模式與 Swing GUI 的教學範例。
+可在畫布上建立 UML 物件(Class / 方形 / 橢圓)、用四種連接線連結物件,並支援選取、移動、縮放、群組、自訂標籤樣式、刪除等編輯操作,以及存檔 / 讀檔與匯出 PNG。專案以三個經典物件導向設計模式(State / Composite / Factory Method)為骨架,適合作為設計模式與 Swing GUI 的教學範例。
 
 ---
 
@@ -10,11 +10,12 @@
 
 | 功能                      | 說明                                                                                                                                                                                               |
 | ------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **建立物件**        | 在畫布上拖曳出**矩形 (Rect)** 或**橢圓 (Oval)**。輕點一下會以預設大小 80×80 建立,拖曳則可自訂大小(支援反向拖曳)。                                                                     |
-| **建立連線**        | 從物件的控制點 (Port) 拖曳到另一個物件的控制點,建立三種 UML 關係:**Association(關聯)**、**Generalization(泛化)**、**Composition(組合)**,各有不同的箭頭樣式。不允許物件連到自己。 |
+| **工具列**          | 左側工具列以**圖示**呈現各模式(滑鼠停留時顯示名稱),目前模式的按鈕以黑色粗框標示。圖示來自 `icon/` 資料夾,讀不到時自動改為文字按鈕。                                                     |
+| **建立物件**        | 在畫布上拖曳出 **UML 類別 (Class)**(分成名稱 / 屬性 / 方法三格)、**矩形 (Rect)** 或**橢圓 (Oval)**。輕點一下會以預設大小 80×80 建立,拖曳則可自訂大小(支援反向拖曳)。          |
+| **建立連線**        | 從物件的控制點 (Port) 拖曳到另一個物件的控制點,建立四種 UML 關係:**Association(關聯)**、**Generalization(泛化)**、**Composition(組合)**、**Dependency(依賴,虛線)**,各有不同的線條與箭頭樣式。不允許物件連到自己。 |
 | **選取 / 取消選取** | 點擊單一物件或**連線**選取(物件顯示控制點、連線以藍色粗線高亮);點擊空白處取消選取;也可在空白處拖曳出**選取框**框選多個物件。                                                           |
 | **移動物件**        | 拖曳已選取的物件即可移動;群組會帶著所有成員一起移動。                                                                                                                                              |
-| **縮放物件**        | 拖曳物件四周的控制點 (Port) 調整大小(Rect 8 點、Oval 4 點)。                                                                                                                                       |
+| **縮放物件**        | 拖曳物件四周的控制點 (Port) 調整大小(Class、Rect 8 點,Oval 4 點)。                                                                                                                                       |
 | **群組 / 解散群組** | 透過 `Edit` 選單把多個選取物件組成群組 (Composite),或將群組解散還原。群組可巢狀。                                                                                                                 |
 | **自訂標籤樣式**    | 透過 `Edit → Label` 開啟對話框,修改選取物件的**名稱文字**與**填充顏色**。                                                                                                            |
 | **刪除**            | 按 `Delete` 鍵(或 `Edit → Delete`)刪除選取的物件 / 連線 / 群組;刪除物件時,連在它(含群組內子物件)身上的連線會一併刪除。                                                                         |
@@ -32,7 +33,7 @@
 | `Ctrl+O` | 開啟 `.uml` 檔              |
 | `Ctrl+E` | 匯出 PNG                     |
 
-對應的 Use Case 圖請見 [`UML/`](UML/) 目錄(UseCase A~G);刪除、存讀檔、匯出 PNG(Use Case H~J)的流程說明請見 [`docs/程式執行流程與函式呼叫順序報告.md`](docs/程式執行流程與函式呼叫順序報告.md)。
+對應的 Use Case 圖請見 [`UML/`](UML/) 目錄(UseCase A\~G);刪除、存讀檔、匯出 PNG(Use Case H\~J)的流程說明請見 [`docs/程式執行流程與函式呼叫順序報告.md`](docs/程式執行流程與函式呼叫順序報告.md)。
 
 ---
 
@@ -67,7 +68,7 @@ Main  ──►  ui (介面/畫布)  ──►  mode (操作模式)  ──►  
 #### 3. Composite + Factory Method — `shape/`
 
 - **Composite Pattern**:`Shape`(抽象基底)是所有圖形的共同型別。`BasicObject`(單一圖形)與 `CompositeObject`(群組)都是 `Shape`;群組內部持有 `List<Shape>`,可巢狀,`move()` / `draw()` / `drawOverlay()` 會遞迴處理所有成員;刪除時也透過 `getComponents()` 遞迴找出群組內的子物件,連帶清除連到它們的連線。
-- **Factory Method Pattern**:`ShapeFactory.orderShape()` 是固定建立流程,把「`new` 哪種圖形」延遲給子類別 `RectFactory` / `OvalFactory` 決定。`CreateObjectMode` 只持有抽象的 `ShapeFactory`,完全不認得具體型別。
+- **Factory Method Pattern**:`ShapeFactory.orderShape()` 是固定建立流程,把「`new` 哪種圖形」延遲給子類別 `RectFactory` / `OvalFactory` / `ClassFactory` 決定。`CreateObjectMode` 只持有抽象的 `ShapeFactory`,完全不認得具體型別——新增 Class 物件時只新增了 `ClassFactory`,`CreateObjectMode` 一行都沒改。
 
 > **設計慣例**:整個專案刻意**避免 `instanceof`**,改用 `Shape` 基底上可被覆寫的多型查詢方法(`isGroup()`、`canCustomizeLabel()`、`isBackgroundLayer()`、`getComponents()`、`getPortAt()`、`resize()`、`isAttachedToAny()`、`drawOverlay()`),讓 `Canvas` / `UMLEditor` 不需知道具體型別。
 >
@@ -77,7 +78,7 @@ Main  ──►  ui (介面/畫布)  ──►  mode (操作模式)  ──►  
 
 ![UML Editor Class Diagram](UML/CompleteClassDiagram.png)
 
-> ⚠️ 此類別圖**尚未反映**刪除、存讀檔、匯出 PNG 這一輪的改動(例如 `DiagramFileIO` 類別、`Shape.drawOverlay()` / `isAttachedToAny()`、`Canvas.deleteSelected()` 等),以下方「主要類別職責」表為準。
+> ⚠️ 此類別圖**尚未反映**最近兩輪的改動(例如 `DiagramFileIO` 類別、`Shape.drawOverlay()` / `isAttachedToAny()`、`Canvas.deleteSelected()`、`ClassFactory`、`ObjectType.CLASS` / `LinkType.DEPENDENCY` 等),以下方「主要類別職責」表為準。
 >
 > 原始檔為 [`UML/01_CompleteClassDiagram.plantuml`](UML/01_CompleteClassDiagram.plantuml)。修改後可用 PlantUML 重新產生 PNG(需先下載 `plantuml.jar`,見下方 [產生 UML 圖](#產生-uml-圖)):
 >
@@ -89,7 +90,7 @@ Main  ──►  ui (介面/畫布)  ──►  mode (操作模式)  ──►  
 
 | 套件      | 類別                                                 | 職責                                                                                                                                     |
 | --------- | ---------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| `ui`    | `UMLEditor`                                        | 主視窗 (JFrame)。擺放工具列按鈕、選單與快捷鍵,監聽模式變更以更新按鈕高亮;負責檔案對話框、標籤對話框與錯誤訊息等 UI。                     |
+| `ui`    | `UMLEditor`                                        | 主視窗 (JFrame)。擺放工具列按鈕(讀取並統一縮放圖示)、選單與快捷鍵,監聽模式變更以更新按鈕高亮;負責檔案對話框、標籤對話框與錯誤訊息等 UI。 |
 | `ui`    | `Canvas`                                           | 畫布 (JPanel),系統樞紐。維護圖形清單 (z-order)、轉發滑鼠事件給當前模式、兩輪繪圖、處理群組/解散/刪除、讀檔後替換圖形、繪製匯出用的影像。 |
 | `ui`    | `ModeChangeListener`                               | 模式變更事件介面 (Observer)。                                                                                                            |
 | `ui`    | `DiagramFileIO`                                    | 存檔 / 讀檔(Java 序列化 +`ObjectInputFilter` 白名單)與匯出 PNG,不含任何 UI 邏輯。                                                      |
@@ -98,11 +99,11 @@ Main  ──►  ui (介面/畫布)  ──►  mode (操作模式)  ──►  
 | `mode`  | `CreateObjectMode`                                 | 拖曳建立物件,委派給 `ShapeFactory`。                                                                                                    |
 | `mode`  | `CreateLinkMode`                                   | 從 Port 拉線建立 `ConnectionLine`。                                                                                                     |
 | `shape` | `Shape`                                            | 圖形抽象基底 (Composite Pattern)。                                                                                                       |
-| `shape` | `BasicObject`                                      | 單一圖形(Rect / Oval),持有控制點 Port。                                                                                                  |
+| `shape` | `BasicObject`                                      | 單一圖形(Class / Rect / Oval),持有控制點 Port。                                                                                          |
 | `shape` | `CompositeObject`                                  | 群組,內部持有子圖形清單。                                                                                                                |
-| `shape` | `ConnectionLine`                                   | 連接兩個 Port 的連線,可被點選;線身畫在底層、依 `LinkType` 畫的箭頭畫在前景層。                                                          |
+| `shape` | `ConnectionLine`                                   | 連接兩個 Port 的連線,可被點選;線身畫在底層(Dependency 為虛線)、依 `LinkType` 畫的箭頭畫在前景層。                                    |
 | `shape` | `Port`                                             | 物件四周的控制點(用於縮放與連線端點)。                                                                                                   |
-| `shape` | `ShapeFactory` / `RectFactory` / `OvalFactory` | 工廠方法,建立具體圖形。                                                                                                                  |
+| `shape` | `ShapeFactory` / `RectFactory` / `OvalFactory` / `ClassFactory` | 工廠方法,建立具體圖形。                                                                                               |
 | `shape` | `ObjectType` / `LinkType`                        | 列舉型別,取代魔術字串。                                                                                                                  |
 
 ---
@@ -115,6 +116,7 @@ UMLEditor/
 ├── ui/                    # 使用者介面(主視窗、畫布、事件介面、檔案 IO)
 ├── mode/                  # 編輯模式(選取、建立物件、建立連線)
 ├── shape/                 # 圖形物件、連接線、控制點、工廠類別
+├── icon/                  # 工具列圖示(png / jpg)
 ├── UML/                   # 設計圖(類別圖、Use Case 圖的 .puml 原始檔與 PNG)
 └── docs/                  # 中文學習筆記(見下表)
 ```
@@ -123,11 +125,12 @@ UMLEditor/
 
 | 筆記                                                                                | 內容                                                                                                |
 | ----------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
-| [程式執行流程與函式呼叫順序報告](docs/程式執行流程與函式呼叫順序報告.md)             | 從啟動到各 Use Case(A~J)的完整函式呼叫順序                                                          |
+| [程式執行流程與函式呼叫順序報告](docs/程式執行流程與函式呼叫順序報告.md)             | 從啟動到各 Use Case(A\~J)的完整函式呼叫順序                                                         |
 | [繪圖機制筆記](docs/繪圖機制筆記_paintComponent_repaint_draw.md)                     | `repaint` / `paintComponent` / `draw` 的關係,以及兩輪繪製 `drawOverlay`                     |
 | [事件監聽機制筆記](docs/事件監聽機制筆記.md)                                         | 點按鈕到換模式、換按鈕顏色的呼叫鏈;`ActionListener` / `MouseListener` / `MouseAdapter` 的差別 |
 | [FunctionalInterface 與 Lambda 筆記](docs/FunctionalInterface與Lambda筆記.md)        | 以 `ModeChangeListener` 為例:`@FunctionalInterface`、Lambda、方法參考,以及多設一個介面的解耦理由 |
 | [功能更新筆記:刪除、存讀檔、匯出與修正](docs/功能更新筆記_刪除_存讀檔_匯出與修正.md) | 刪除 / 存讀檔 / 匯出 PNG 的設計理由、行為改動與 bug 修復                                            |
+| [功能更新筆記:工具列圖示、Class 與 Dependency](docs/功能更新筆記_工具列圖示_Class_Dependency.md) | 圖示的裁切與縮放、選取樣式、Class 物件與 Dependency 虛線的設計理由                                  |
 
 > `plantuml.jar` **未納入版控**(已被 `.gitignore` 排除),僅在需要重新產生 UML 圖時才需自行下載,見 [產生 UML 圖](#產生-uml-圖)。
 
@@ -145,7 +148,9 @@ javac -d bin Main.java mode/*.java shape/*.java ui/*.java
 java -cp bin Main
 ```
 
-啟動後會開啟一個 800×600 的視窗:左側為工具列(Select / Association / Generalization / Composition / Rect / Oval),上方為 `File`(Open / Save / Export PNG)與 `Edit`(Group / Ungroup / Label / Delete)選單,中央為繪圖畫布。
+啟動後會開啟一個 800×600 的視窗:左側為工具列(Select / Association / Generalization / Composition / Dependency / Class / Rect / Oval),上方為 `File`(Open / Save / Export PNG)與 `Edit`(Group / Ungroup / Label / Delete)選單,中央為繪圖畫布。
+
+> **請在專案根目錄執行**:工具列圖示以相對路徑 `icon/` 讀取,從其他目錄執行時找不到圖檔,按鈕會自動改為顯示文字(功能不受影響)。
 
 ### 環境需求
 

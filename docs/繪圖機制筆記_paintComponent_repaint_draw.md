@@ -146,9 +146,12 @@ private void drawAllShapes(Graphics g) {
 @Override
 public void draw(Graphics g) {
     g.setColor(color);
-    if (type == ObjectType.RECT) { g.fillRect(x, y, width, height); ... }
-    else { g.fillOval(x, y, width, height); ... }
-    g.drawString(label, ...);
+    switch (type) {
+        case RECT:  g.fillRect(x, y, width, height); ...  break;
+        case OVAL:  g.fillOval(x, y, width, height); ...  break;
+        case CLASS: g.fillRect(...); 再畫兩條橫線分成三格; break;   // 名稱 / 屬性 / 方法
+    }
+    g.drawString(label, ...);          // Class 的標籤只置中在最上面的名稱格
     if (selected || hovered) { /* 畫出 8/4 個 Port */ }
 }
 
