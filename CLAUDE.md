@@ -32,7 +32,7 @@ java -cp bin Main
 `Canvas` 本身**不解讀滑鼠事件**。它在建構子裡掛一個 `MouseAdapter`,把所有 `mousePressed/Dragged/Released/Moved` 原封不動轉交給 `currentMode`(見 [ui/Canvas.java](ui/Canvas.java))。
 
 - `Mode`(抽象基底)定義四個滑鼠方法 + 一個 `draw(Graphics)`,預設皆空實作,子類別只覆寫需要的。
-- 具體模式:`SelectMode`(選取/移動/縮放/懸停)、`CreateObjectMode`(畫方形/橢圓)、`CreateLinkMode`(拉連線)。
+- 具體模式:`SelectMode`(選取/移動/縮放/懸停)、`CreateObjectMode`(畫方形/橢圓/Class)、`CreateLinkMode`(拉連線)。
 - 「一次性動作」(畫完一個圖形或一條線)結束後,模式會呼叫 `canvas.returnToDefaultMode()` **自動切回 `SelectMode`**。
 
 ### 2. 模式切換的廣播 — Observer(`ui/ModeChangeListener`)
@@ -47,10 +47,10 @@ java -cp bin Main
 
 `Shape`(抽象基底)是所有圖形的共同型別,`Canvas` 只認得 `Shape`。兩條繼承線:
 
-- `BasicObject` — 單一圖形(方形 / 橢圓),持有一組 `Port`(縮放控制點;Rect 8 個、Oval 4 個)。
+- `BasicObject` — 單一圖形(方形 / 橢圓 / UML Class),持有一組 `Port`(縮放控制點;Rect 與 Class 8 個、Oval 4 個)。
 - `CompositeObject` — 群組,內部持有 `List<Shape>`,`move()` 會帶著所有子圖形一起移動,`draw()` 會畫出虛線外框。群組可巢狀。
 
-**圖形的建立**走 Factory Method:`ShapeFactory.orderShape()` 是固定流程(建立 → 設邊界),把 `new` 哪種圖形延遲給子類別 `RectFactory` / `OvalFactory` 決定;`CreateObjectMode` 只持有一個抽象的 `ShapeFactory`,完全不認得具體型別。
+**圖形的建立**走 Factory Method:`ShapeFactory.orderShape()` 是固定流程(建立 → 設邊界),把 `new` 哪種圖形延遲給子類別 `RectFactory` / `OvalFactory` / `ClassFactory` 決定;`CreateObjectMode` 只持有一個抽象的 `ShapeFactory`,完全不認得具體型別。
 
 ### 兩個容易踩雷的約定
 

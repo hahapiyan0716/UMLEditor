@@ -7,5 +7,6 @@ package shape;
  */
 public enum ObjectType {
     RECT,   // 矩形
-    OVAL    // 橢圓
+    OVAL,   // 橢圓
+    CLASS   // UML 類別：分成「名稱 / 屬性 / 方法」三格的矩形
 }

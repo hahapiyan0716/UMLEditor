@@ -8,5 +8,6 @@ package shape;
 public enum LinkType {
     ASSOCIATION,        // 關聯：一般 V 型箭頭
     GENERALIZATION,     // 繼承：空心三角形
-    COMPOSITION         // 組合：實心菱形
+    COMPOSITION,        // 組合：實心菱形
+    DEPENDENCY          // 依賴：虛線 + 一般 V 型箭頭
 }

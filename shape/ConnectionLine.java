@@ -11,6 +11,20 @@ public class ConnectionLine extends Shape {
 
     // 被選取時的粗線筆觸 (static final：所有連線共用同一支筆，不必每次重畫都 new 一個)
     private static final Stroke SELECTED_STROKE = new BasicStroke(2.5f);
+
+    // Dependency 線身用的虛線筆觸
+    // BasicStroke 完整建構子的參數：(線寬, 端點樣式, 轉角樣式, 斜接上限, 虛線樣式陣列, 虛線起始偏移)
+    //   CAP_BUTT    ：線段端點平切，不額外延伸 (每一小段虛線長度才會精準等於設定值)
+    //   JOIN_MITER  ：轉角用尖角接合 (直線沒有轉角，填預設值即可)
+    //   10f         ：斜接上限 (miter limit)，搭配 JOIN_MITER 使用的預設值
+    //   {6f, 4f}    ：虛線樣式「畫 6px、空 4px」不斷重複
+    //   0f          ：從虛線樣式的第 0px 開始畫
+    private static final float[] DASH_PATTERN = { 6f, 4f };
+    private static final Stroke DASHED_STROKE = new BasicStroke(
+        1f, BasicStroke.CAP_BUTT, BasicStroke.JOIN_MITER, 10f, DASH_PATTERN, 0f);
+    // 被選取時的粗虛線 (跟 SELECTED_STROKE 同樣粗 2.5px，只是改成虛線)
+    private static final Stroke SELECTED_DASHED_STROKE = new BasicStroke(
+        2.5f, BasicStroke.CAP_BUTT, BasicStroke.JOIN_MITER, 10f, DASH_PATTERN, 0f);
     // 選取/懸停時的高亮顏色
     private static final Color HIGHLIGHT_COLOR = new Color(30, 90, 220);
 
@@ -18,7 +32,7 @@ public class ConnectionLine extends Shape {
     private Port startPort;
     // 連接線的終點
     private Port endPort;
-    // 連接線的類型: ASSOCIATION、GENERALIZATION、COMPOSITION
+    // 連接線的類型: ASSOCIATION、GENERALIZATION、COMPOSITION、DEPENDENCY
     private LinkType linkType;
 
     public ConnectionLine(Port start, Port end, LinkType type) {
@@ -45,6 +59,12 @@ public class ConnectionLine extends Shape {
         Graphics2D g2d = (Graphics2D) g;
         Stroke oldStroke = g2d.getStroke();     // 備份原本的筆觸，畫完要還原，以免影響後面其他圖形
         applyLineStyle(g2d);
+        // Dependency 的線身改用虛線 (選取時用粗虛線)。
+        // 只有「線身」換成虛線，箭頭 (drawOverlay) 仍沿用 applyLineStyle 設的實線筆觸：
+        // 箭頭的兩條翅膀只有 15px 長，若也套用「畫 6 空 4」的虛線，會被切成零碎的小段，看起來像箭頭斷掉。
+        if (linkType == LinkType.DEPENDENCY) {
+            g2d.setStroke(selected ? SELECTED_DASHED_STROKE : DASHED_STROKE);
+        }
         g2d.drawLine(startPort.getX(), startPort.getY(), endPort.getX(), endPort.getY());
         g2d.setStroke(oldStroke);               // 還原筆觸
     }
@@ -96,7 +116,11 @@ public class ConnectionLine extends Shape {
         // 依據規格畫出不同的箭頭形狀 (switch 窮舉 enum，未來新增線型編譯器會提醒)
         switch (linkType) {
             case ASSOCIATION:
+            case DEPENDENCY:
                 // 一般箭頭：兩條線 (V型)
+                // Dependency 的箭頭跟 Association 長得一樣，兩者的差別只在線身是實線還是虛線 (見 draw())。
+                // 這裡利用 switch 的「貫穿 (fall-through)」：case ASSOCIATION 底下沒有 break，
+                // 所以 ASSOCIATION 和 DEPENDENCY 會執行同一段程式碼，不必把畫 V 型箭頭的程式寫兩次。
                 g.drawLine(x2, y2, xRight, yRight);
                 g.drawLine(x2, y2, xLeft, yLeft);
                 break;

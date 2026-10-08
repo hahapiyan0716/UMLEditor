@@ -5,7 +5,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class BasicObject extends Shape {
-    // 記錄物件到底是什麼類型（RECT 或 OVAL）。
+    // 記錄物件到底是什麼類型（RECT、OVAL 或 CLASS）。
     private ObjectType type;
     private List<Port> ports = new ArrayList<>();
     private Port currentDraggingPort = null;
@@ -19,12 +19,12 @@ public class BasicObject extends Shape {
         this.y = y;
         this.type = type;
 
-        // 產生 8 個 ports，Oval 產生 4 個 ports
+        // Rect 與 Class 外形都是矩形，產生 8 個 ports；Oval 產生 4 個 ports
         int portCount;
-        if(type == ObjectType.RECT)
-            portCount = 8;
-        else
+        if(type == ObjectType.OVAL)
             portCount = 4;
+        else
+            portCount = 8;
 
         // 確實把 Port 實體塞進清單裡
         // 低耦合改進：傳入 this（Shape 的子類別），而非硬編碼 BasicObject
@@ -52,7 +52,8 @@ public class BasicObject extends Shape {
         int right = x + width;              // 圖形的右邊界座標
         int bottom = y + height;            // 圖形的底部座標
 
-        if(type == ObjectType.RECT){
+        // Rect 與 Class 都是矩形外框，共用同一套 8 個點的配置
+        if(type != ObjectType.OVAL){
             // 8 個點：上中下左右 ＋ 四個角落
             // 設定 Ports 的起始點座標，之後畫圖會用到
             ports.get(0).setPosition(midX, y);       // 上中
@@ -95,19 +96,39 @@ public class BasicObject extends Shape {
     public void draw(Graphics g) {
         // 先設定畫筆的顏色為灰色，然後去畫矩形的顏色
         g.setColor(color);
-        if (type == ObjectType.RECT) {
-            // java.awt.Graphics 已經寫好的函式
-            // 畫出並填滿一個矩形區域，因為一開始就有設定畫筆的顏色，所以直接用來畫矩形，填滿成灰色
-            g.fillRect(x, y, width, height);
+        // labelAreaHeight：標籤文字要在多高的範圍內垂直置中。
+        // Rect / Oval 是整個圖形的高度；Class 只放在最上面的「名稱格」裡，所以是高度的 1/3。
+        int labelAreaHeight = height;
+        switch (type) {
+            case RECT:
+                // java.awt.Graphics 已經寫好的函式
+                // 畫出並填滿一個矩形區域，因為一開始就有設定畫筆的顏色，所以直接用來畫矩形，填滿成灰色
+                g.fillRect(x, y, width, height);
 
-            // 重新設定畫筆的顏色為黑色，拿來畫邊框
-            g.setColor(Color.BLACK);
-            g.drawRect(x, y, width, height);
-        }
-        else {
-            g.fillOval(x, y, width, height);
-            g.setColor(Color.BLACK);
-            g.drawOval(x, y, width, height);
+                // 重新設定畫筆的顏色為黑色，拿來畫邊框
+                g.setColor(Color.BLACK);
+                g.drawRect(x, y, width, height);
+                break;
+            case OVAL:
+                g.fillOval(x, y, width, height);
+                g.setColor(Color.BLACK);
+                g.drawOval(x, y, width, height);
+                break;
+            case CLASS: {
+                // UML 類別圖的 Class：一個矩形，用兩條水平線平分成三格
+                //   第一格：類別名稱 (Label)
+                //   第二格：屬性 (Attributes)
+                //   第三格：方法 (Methods / Operations)
+                g.fillRect(x, y, width, height);
+                g.setColor(Color.BLACK);
+                g.drawRect(x, y, width, height);
+                int firstLineY = y + height / 3;
+                int secondLineY = y + height * 2 / 3;
+                g.drawLine(x, firstLineY, x + width, firstLineY);
+                g.drawLine(x, secondLineY, x + width, secondLineY);
+                labelAreaHeight = height / 3;
+                break;
+            }
         }
         // 負責把字印在畫好的圖形上，並且「真正」置中
         // drawString(text, x, y) 的 (x, y) 不是文字的左上角，而是：
@@ -122,9 +143,10 @@ public class BasicObject extends Shape {
         FontMetrics fm = g.getFontMetrics();
         // 水平置中：從圖形左邊界往右推「(圖形寬 - 文字寬) / 2」
         int textX = x + (width - fm.stringWidth(label)) / 2;
-        // 垂直置中：先算出「文字框」的頂端要放在哪 (圖形高 - 文字高) / 2，
+        // 垂直置中：先算出「文字框」的頂端要放在哪 (標籤區高 - 文字高) / 2，
         // 再往下加 ascent 換算成 drawString 需要的基線位置
-        int textY = y + (height - fm.getHeight()) / 2 + fm.getAscent();
+        // (Rect / Oval 的標籤區就是整個圖形；Class 則只有最上面的名稱格)
+        int textY = y + (labelAreaHeight - fm.getHeight()) / 2 + fm.getAscent();
         g.drawString(label, textX, textY);
 
         // 若被選取或是滑鼠經過(懸停)，畫出 Ports，表示基本物件處於被 select 的狀態
