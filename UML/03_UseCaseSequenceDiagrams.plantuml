@@ -1,0 +1,409 @@
+@startuml UseCase_A_CreateObject
+title Use Case A: 創建物件 (Creating an object)
+note top: 規格: 使用者在Rect或Oval按鈕範圍內按下左鍵，拖曳，放開左鍵後創建物件
+
+actor User
+participant UMLEditor
+participant Canvas
+participant CreateObjectMode
+participant "RectFactory\n(extends ShapeFactory)" as ShapeFactory
+participant BasicObject
+participant SelectMode
+
+User -> UMLEditor: 1. 在Rect或Oval按鈕範圍內按下左鍵(不放開)
+UMLEditor -> UMLEditor: 原模式按鈕顏色復原
+UMLEditor -> UMLEditor: 2. 目標Rect/Oval按鈕變黑
+UMLEditor -> Canvas: setCurrentMode(CreateObjectMode)
+
+User -> Canvas: 3. 不放開左鍵，進行拖曳(drag)
+
+Canvas -> CreateObjectMode: mouseDragged(MouseEvent)
+CreateObjectMode -> CreateObjectMode: 更新previewBox
+CreateObjectMode -> Canvas: repaint()
+Canvas -> Canvas: 顯示灰色預覽框(拖曳軌跡)
+
+User -> Canvas: 4. 拖曳至編輯區域放開左鍵(mouse released)
+
+Canvas -> CreateObjectMode: mouseReleased(MouseEvent)
+CreateObjectMode -> ShapeFactory: orderShape(x, y, width, height)
+ShapeFactory -> ShapeFactory: createShape(x, y) [工廠方法]
+ShapeFactory -> BasicObject: new BasicObject(x, y, ObjectType.RECT)
+ShapeFactory -> BasicObject: setBounds(x, y, width, height)
+ShapeFactory -> CreateObjectMode: 回傳BasicObject
+CreateObjectMode -> Canvas: addShape(basicObject)
+Canvas -> Canvas: 5. 在編輯區內繪製Rect或Oval物件
+CreateObjectMode -> Canvas: returnToDefaultMode()
+Canvas -> Canvas: setCurrentMode(defaultMode=SelectMode)
+Canvas -> UMLEditor: onModeChanged(SelectMode) [模式變更事件]
+UMLEditor -> UMLEditor: 6. highlightActiveButton(): 其他按鈕復原, Select按鈕變黑
+
+@enduml
+
+@startuml UseCase_B_CreateLink
+title Use Case B: 創建連線 (Creating a Link)
+note top: 規格: 從一個物件的Port連線到另一個物件的Port
+
+actor User
+participant UMLEditor
+participant Canvas
+participant CreateLinkMode
+participant BasicObject1
+participant Port1
+participant Port2
+participant BasicObject2
+participant ConnectionLine
+
+note over UMLEditor: Precondition: Association/Generalization/Composition按鈕被按下(傳入對應的LinkType enum)
+
+User -> Canvas: 1. 在某個Rect/Oval物件的Port範圍內按下左鍵(不放開)
+Canvas -> CreateLinkMode: mousePressed(MouseEvent)
+CreateLinkMode -> Canvas: 遍歷所有圖形
+CreateLinkMode -> BasicObject1: getPortAt(Point)
+BasicObject1 -> Port1: contains(Point)
+Port1 -> CreateLinkMode: 回傳true
+
+CreateLinkMode -> CreateLinkMode: startPort = Port1\nsourceShape = BasicObject1
+
+User -> Canvas: 2. 不放開左鍵，進行拖曳(drag)
+
+Canvas -> CreateLinkMode: mouseDragged(MouseEvent)
+CreateLinkMode -> Canvas: 清除所有圖形的hovered狀態
+CreateLinkMode -> Canvas: getTopShapeAt(currentPoint)
+Canvas -> BasicObject2: contains(Point)
+BasicObject2 -> CreateLinkMode: 回傳true
+CreateLinkMode -> BasicObject2: setHovered(true)
+CreateLinkMode -> Canvas: repaint()
+Canvas -> Canvas: 顯示從startPort到當前座標的預覽線
+
+note right of User: Alternative B.1: mousePressed座標不在任何物件Port範圍內\n則從mousePressed->mouseDrag->mouseReleased都不會有作用
+
+User -> Canvas: 3. 拖曳到另一個Rect/Oval物件的Port放開左鍵
+
+Canvas -> CreateLinkMode: mouseReleased(MouseEvent)
+CreateLinkMode -> Canvas: 遍歷所有圖形
+CreateLinkMode -> BasicObject2: getPortAt(releasePoint)
+BasicObject2 -> Port2: contains(Point)
+Port2 -> CreateLinkMode: 回傳true
+
+CreateLinkMode -> CreateLinkMode: endPort = Port2\n檢查: startPort.parent != endPort.parent
+
+note right of CreateLinkMode: 檢查不能自己連自己
+
+alt 檢查通過
+CreateLinkMode -> ConnectionLine: new ConnectionLine(Port1, Port2, LinkType.ASSOCIATION)
+ConnectionLine -> CreateLinkMode: 回傳ConnectionLine物件
+CreateLinkMode -> Canvas: addShape(connectionLine)
+note right of Canvas: 連線 isBackgroundLayer()=true → 插入清單最前面(最底層)
+Canvas -> Canvas: 4. 建立連線物件，並依LinkType繪製對應箭頭
+CreateLinkMode -> Canvas: returnToDefaultMode()
+Canvas -> UMLEditor: onModeChanged(SelectMode) [模式變更事件→更新按鈕]
+else Alternative B.2: mouseReleased座標不在任何Port或同一個物件
+CreateLinkMode -> CreateLinkMode: 不建立任何連線物件
+end
+
+@enduml
+
+@startuml UseCase_C_SelectUnselect
+title Use Case C: 選取/取消選取單個物件 (Select/Unselect)
+note top: 規格: 當物件被select/hover時，顯示ports；未被select/hover時，ports隱藏
+
+actor User
+participant UMLEditor
+participant Canvas
+participant SelectMode
+participant BasicObject
+participant Port
+
+note over UMLEditor: Precondition: Select按鈕被按下
+
+== Case 1: 選取單個物件 ==
+
+User -> Canvas: 1. 將滑鼠移動至某物件範圍內
+
+Canvas -> SelectMode: mouseMoved(MouseEvent)
+SelectMode -> Canvas: getTopShapeAt(Point)
+Canvas -> BasicObject: contains(Point)
+BasicObject -> SelectMode: 回傳true
+SelectMode -> BasicObject: setHovered(true)
+SelectMode -> BasicObject: 2. 將此物件的ports做明確顯示
+SelectMode -> Canvas: repaint()
+Canvas -> BasicObject: draw(Graphics)
+
+User -> Canvas: 3. 使用者點選該物件
+
+Canvas -> SelectMode: mousePressed(MouseEvent)
+SelectMode -> Canvas: 檢查是否點擊到Port
+Canvas -> BasicObject: getPortAt(Point)
+alt 未點到Port
+SelectMode -> Canvas: getTopShapeAt(Point)
+Canvas -> BasicObject: 回傳BasicObject
+SelectMode -> Canvas: clearSelection()
+SelectMode -> Canvas: 若有其他物件被select則取消
+SelectMode -> BasicObject: setSelected(true)
+SelectMode -> Canvas: floatToFront(BasicObject)
+note right of Canvas: z-order 改用清單順序:把物件移到清單末端=最上層\n(取代舊的 setDepth(0))
+end
+SelectMode -> Canvas: repaint()
+
+== Case 2: 框選多個物件 ==
+
+User -> Canvas: 1. 在編輯區座標x1,y1按住左鍵不放(x1,y1不屬於任何物件)
+
+Canvas -> SelectMode: mousePressed(MouseEvent)
+SelectMode -> Canvas: getTopShapeAt(Point)
+Canvas -> SelectMode: 回傳null(空白處)
+SelectMode -> Canvas: clearSelection()
+SelectMode -> SelectMode: selectionBox = new Rectangle(x1,y1)
+
+User -> Canvas: 2.拖曳到座標x2,y2放開左鍵
+
+Canvas -> SelectMode: mouseDragged(MouseEvent)
+SelectMode -> SelectMode: selectionBox != null(框選狀態)
+SelectMode -> SelectMode: 更新selectionBox的邊界
+SelectMode -> Canvas: repaint()
+Canvas -> Canvas: 顯示半透明藍色框和藍色邊框
+
+Canvas -> SelectMode: mouseReleased(MouseEvent)
+SelectMode -> SelectMode: 3. (x1,y1,x2,y2)形成四方形區域
+SelectMode -> SelectMode: 遍歷所有圖形
+SelectMode -> BasicObject: getBounds()
+alt 圖形完全落於選取框
+BasicObject -> BasicObject: setSelected(true)
+else Alternative C.3: 沒有物件完全落於框內
+SelectMode -> Canvas: unselect所有物件
+end
+SelectMode -> Canvas: repaint()
+
+@enduml
+
+@startuml UseCase_E_MoveObjects
+title Use Case E: 移動物件 (Move objects)
+
+actor User
+participant UMLEditor
+participant Canvas
+participant SelectMode
+participant BasicObject
+participant ConnectionLine
+
+note over UMLEditor: Precondition: Select按鈕被按下
+note top: 規格: 物件重疊時按清單順序繪製(越後面越上層)\n最後選取的物件應被繪製於最上層
+
+User -> Canvas: 1. 在編輯區某物件(含composite)範圍內按下左鍵不放
+
+Canvas -> SelectMode: mousePressed(MouseEvent)
+SelectMode -> Canvas: getTopShapeAt(Point)
+Canvas -> BasicObject: 回傳被點擊的物件
+
+alt 點到「未被選取」的物件
+SelectMode -> Canvas: clearSelection()
+SelectMode -> BasicObject: setSelected(true)
+SelectMode -> Canvas: floatToFront(BasicObject)
+note right of Canvas: 移到清單末端=視覺最上層(取代舊的 setDepth(0))
+else 點到「已被選取」的物件(單選或多選)
+SelectMode -> SelectMode: 保留所有選取,準備整批移動
+end
+SelectMode -> SelectMode: draggedShape = BasicObject\nstartPoint = 座標
+
+User -> Canvas: 2. 不放開左鍵進行拖曳(drag)
+
+Canvas -> SelectMode: mouseDragged(MouseEvent)
+SelectMode -> SelectMode: draggedPort==null && draggedShape!=null
+SelectMode -> SelectMode: 計算dx = currentX - startPoint.x\ndy = currentY - startPoint.y
+
+loop 每個 isSelected() 的圖形 (支援多選整批移動)
+SelectMode -> BasicObject: move(dx, dy)
+BasicObject -> BasicObject: x += dx; y += dy;
+BasicObject -> BasicObject: updatePorts()
+end
+SelectMode -> Canvas: repaint()
+Canvas -> Canvas: 顯示移動中的圖形
+
+User -> Canvas: 3. 拖曳到座標x,y放開左鍵
+
+Canvas -> SelectMode: mouseReleased(MouseEvent)
+SelectMode -> SelectMode: 4. 物件被移動到新座標x,y
+SelectMode -> Canvas: clearStates()
+SelectMode -> Canvas: repaint()
+
+note right of Canvas: 5. 所有連結到該基本物件的\nconnection links全部重新繪製\n(因為Port位置已更新)\n連線會自動跟著Port移動
+
+@enduml
+
+@startuml UseCase_D_GroupUngroup
+title Use Case D: 群組/解散群組物件 (Group/Ungroup)
+
+actor User
+participant UMLEditor
+participant Canvas
+participant CompositeObject
+participant BasicObject1
+participant BasicObject2
+
+note over UMLEditor: Precondition: Select按鈕被按下
+
+== Case 1: 群組物件 ==
+
+User -> UMLEditor: 當有≥2個物件處於被select狀態時
+User -> UMLEditor: 使用者到Edit Menu點選Group選項
+
+UMLEditor -> Canvas: groupSelected()
+Canvas -> Canvas: 1. 遍歷所有圖形找出被select的(selected=true)
+
+Canvas -> Canvas: 2. 檢查selectedShapes.size() >= 2
+
+alt 數量足夠
+Canvas -> CompositeObject: new CompositeObject()
+Canvas -> Canvas: 遍歷selectedShapes清單
+
+loop 每個被選取的物件
+Canvas -> BasicObject1: setSelected(false)
+Canvas -> CompositeObject: addComponent(BasicObject1)
+CompositeObject -> CompositeObject: components.add()\nupdateBounds()
+Canvas -> Canvas: shapes.remove(BasicObject1)
+end
+
+Canvas -> CompositeObject: setSelected(true)
+Canvas -> Canvas: 3. shapes.add(CompositeObject)
+Canvas -> Canvas: repaint()
+
+else Alternative D.1: 只有1個物件被選取
+Canvas -> Canvas: 不會有任何動作
+end
+
+== Case 2: 解散群組 ==
+
+User -> UMLEditor: 當唯一1個composite物件被select時
+User -> UMLEditor: 使用者到Edit Menu點選Ungroup選項
+
+UMLEditor -> Canvas: ungroupSelected()
+Canvas -> Canvas: 1. 遍歷所有圖形找出被select的
+Canvas -> Canvas: 2. 檢查selectedShapes.size()==1 && isGroup()
+note right of Canvas: 用多型 isGroup() 取代 instanceof CompositeObject
+
+alt 條件符合 (是群組)
+Canvas -> Canvas: shapes.remove(composite)
+Canvas -> CompositeObject: getComponents()
+note right of CompositeObject: getComponents() 走 Shape 多型介面,不需轉型
+CompositeObject -> Canvas: 回傳components清單
+
+loop 每個子圖形
+Canvas -> BasicObject1: 3. shapes.add(BasicObject1)
+end
+
+Canvas -> Canvas: repaint()
+
+else Alternative D.2: ≥2個物件被選取或非群組
+Canvas -> Canvas: 不會有任何動作
+end
+
+@enduml
+
+@startuml UseCase_F_ResizeObjects
+title Use Case F: 縮放物件 (Resize objects)
+
+actor User
+participant UMLEditor
+participant Canvas
+participant SelectMode
+participant BasicObject
+participant Port
+
+note over UMLEditor: Precondition: Select按鈕被按下
+
+User -> Canvas: 1. 將滑鼠移動至某基本物件範圍內
+
+Canvas -> SelectMode: mouseMoved(MouseEvent)
+SelectMode -> BasicObject: setHovered(true)
+SelectMode -> BasicObject: 2. 將此基本物件的ports做明確顯示
+SelectMode -> Canvas: repaint()
+
+User -> Canvas: 3. 使用者點選該基本物件的任一port按住左鍵不放
+
+Canvas -> SelectMode: mousePressed(MouseEvent)
+SelectMode -> Canvas: getShapes()迴圈
+SelectMode -> BasicObject: 檢查isSelected()或isHovered()
+SelectMode -> BasicObject: getPortAt(Point)
+BasicObject -> Port: contains(Point)
+Port -> SelectMode: 回傳true(點擊在Port上)
+SelectMode -> Canvas: clearSelection()
+SelectMode -> BasicObject: setSelected(true)
+note right of SelectMode: 鎖定選取狀態,確保整個縮放過程Port不會消失
+SelectMode -> SelectMode: draggedPort = Port\ndraggedShape = BasicObject
+SelectMode -> Canvas: repaint()
+
+User -> Canvas: 4. 不放開左鍵進行拖曳(drag)
+
+Canvas -> SelectMode: mouseDragged(MouseEvent)
+SelectMode -> SelectMode: draggedPort != null(縮放狀態)
+SelectMode -> BasicObject: resize(Port, Point)
+BasicObject -> BasicObject: 根據Port位置計算新的邊界\n(支援反向拖曳-Alternative F.2)
+BasicObject -> BasicObject: setBounds(x, y, width, height)\nupdatePorts()重新計算所有Port
+SelectMode -> Canvas: repaint()
+Canvas -> Canvas: 6. 顯示正在縮放的圖形
+
+User -> Canvas: 5. 拖曳到座標x,y放開左鍵
+
+Canvas -> SelectMode: mouseReleased(MouseEvent)
+SelectMode -> SelectMode: 清除draggedPort和draggedShape
+SelectMode -> Canvas: repaint()
+
+note right of BasicObject: Alternative F.1: 若點擊的是composite物件\n則無法進行縮放，放開後維持原大小
+note right of BasicObject: Alternative F.2: 支援反向拖曳\n系統自動重新計算並轉換物件的基準座標
+note right of BasicObject: Alternative F.3: 若新尺寸小於最小值(20 pixels)\n系統應強制繪製為預設的最小尺寸
+
+@enduml
+
+@startuml UseCase_G_CustomizeLabel
+title Use Case G: 自訂標籤風格 (Customize Label Style)
+
+actor User
+participant UMLEditor
+participant Canvas
+participant BasicObject
+participant JColorChooser
+participant JOptionPane
+
+note over UMLEditor: Precondition: 當某一個基本物件處於被select的狀態時
+
+User -> UMLEditor: 使用者到Edit Menu點選Label項目
+
+UMLEditor -> UMLEditor: customizeLabel()
+note right of UMLEditor: 對話框屬UI層職責,已從Canvas搬到UMLEditor
+UMLEditor -> Canvas: getShapes() [唯讀檢視]
+UMLEditor -> BasicObject: 檢查isSelected() && canCustomizeLabel()
+note right of BasicObject: 用多型 canCustomizeLabel() 取代 instanceof BasicObject
+UMLEditor -> UMLEditor: target = BasicObject
+
+alt 找到被select且可自訂標籤的物件
+UMLEditor -> JOptionPane: 1. 彈跳視窗Customize Label Style\n提供以下選項並預設顯示原設定：
+
+note right of JOptionPane: a. 標籤名稱(Label Name): 輸入新名稱\nb. 標籤顏色(Label Color): 變更標籤背景色
+
+User -> UMLEditor: 使用者點擊顏色按鈕
+
+UMLEditor -> JColorChooser: JColorChooser.showDialog()
+JColorChooser -> User: 顯示調色盤
+User -> JColorChooser: 選擇顏色並按OK
+
+JColorChooser -> UMLEditor: 回傳Color物件
+
+User -> JOptionPane: 修改標籤名稱和顏色後按OK
+
+JOptionPane -> UMLEditor: 確認(OK_OPTION)
+
+UMLEditor -> BasicObject: 2. 設置新的label和color
+BasicObject -> BasicObject: setLabel(newLabel)\nsetColor(newColor)
+UMLEditor -> Canvas: 3. repaint()
+Canvas -> Canvas: 顯示更新後的物件
+
+else 無符合條件的物件
+UMLEditor -> UMLEditor: 結束，無任何動作
+end
+
+alt Alternative G.1: 使用者更新標籤設定後按下Cancel
+JOptionPane -> UMLEditor: 取消
+UMLEditor -> BasicObject: 物件維持原設定不變
+end
+
+@enduml

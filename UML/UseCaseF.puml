@@ -1,0 +1,72 @@
+@startuml UseCase_F_ResizeObjects
+title Use Case F: 縮放物件 (Resize objects)
+
+actor User
+participant __anUMLEditor__ as UMLEditor
+participant __aCanvas__ as Canvas
+participant __aSelectMode__ as SelectMode
+participant __aBasicObject__ as BasicObject
+participant __aPort__ as Port
+
+note over UMLEditor: Precondition: Select按鈕被按下
+
+User -> Canvas ++ : 1. 將滑鼠移動至某基本物件範圍內
+
+Canvas -> SelectMode ++ : mouseMoved(MouseEvent)
+SelectMode -> BasicObject ++ : setHovered(true)
+BasicObject -->> SelectMode -- : return
+SelectMode -> BasicObject ++ : 2. 將此基本物件的ports做明確顯示
+BasicObject -->> SelectMode -- : return
+SelectMode -> Canvas : repaint()
+SelectMode -->> Canvas -- : return
+
+User -> Canvas : 3. 使用者點選該基本物件的任一port按住左鍵不放
+
+Canvas -> SelectMode ++ : mousePressed(MouseEvent)
+SelectMode -> Canvas ++ : getShapes()迴圈
+Canvas -->> SelectMode -- : return
+SelectMode -> BasicObject ++ : 檢查isSelected()或isHovered()
+BasicObject -->> SelectMode -- : (結果)
+SelectMode -> BasicObject ++ : getPortAt(Point)
+BasicObject -> Port ++ : contains(Point)
+Port -->> BasicObject -- : 回傳true(點擊在Port上)
+BasicObject -->> SelectMode -- : 回傳Port
+SelectMode -> Canvas ++ : clearSelection()
+Canvas -->> SelectMode -- : return
+SelectMode -> BasicObject ++ : setSelected(true)
+BasicObject -->> SelectMode -- : return
+note right of SelectMode: 鎖定選取,確保縮放過程Port不消失
+SelectMode -> SelectMode ++ : draggedPort = Port\ndraggedShape = BasicObject
+SelectMode -->> SelectMode -- : return
+SelectMode -> Canvas : repaint()
+SelectMode -->> Canvas -- : return
+
+User -> Canvas : 4. 不放開左鍵進行拖曳(drag)
+
+Canvas -> SelectMode ++ : mouseDragged(MouseEvent)
+SelectMode -> SelectMode ++ : draggedPort != null(縮放狀態)
+SelectMode -->> SelectMode -- : (檢查)
+SelectMode -> BasicObject ++ : resize(Port, Point)
+BasicObject -> BasicObject ++ : 根據Port位置計算新的邊界\n(支援反向拖曳-Alternative F.2)
+BasicObject -->> BasicObject -- : return
+BasicObject -> BasicObject ++ : setBounds(x, y, width, height)\nupdatePorts()重新計算所有Port
+BasicObject -->> BasicObject -- : return
+BasicObject -->> SelectMode -- : return
+SelectMode -> Canvas : repaint()
+SelectMode -->> Canvas -- : return
+Canvas -> Canvas ++ : 6. 顯示正在縮放的圖形
+Canvas -->> Canvas -- : return
+
+User -> Canvas : 5. 拖曳到座標x,y放開左鍵
+
+Canvas -> SelectMode ++ : mouseReleased(MouseEvent)
+SelectMode -> SelectMode ++ : 清除draggedPort和draggedShape
+SelectMode -->> SelectMode -- : return
+SelectMode -> Canvas : repaint()
+SelectMode -->> Canvas -- : return
+
+note right of BasicObject: Alternative F.1: 若點擊的是composite物件\n則無法進行縮放，放開後維持原大小
+note right of BasicObject: Alternative F.2: 支援反向拖曳\n系統自動重新計算並轉換物件的基準座標
+note right of BasicObject: Alternative F.3: 若新尺寸小於最小值(如20 pixels)\n系統應強制繪製為預設的最小尺寸
+
+@enduml

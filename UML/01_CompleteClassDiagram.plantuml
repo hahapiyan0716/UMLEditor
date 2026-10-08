@@ -1,0 +1,275 @@
+@startuml CompleteClassDiagram
+'title UML Editor - Class Diagram
+
+' ========== 排版設定 ==========
+skinparam linetype ortho          ' 用正交(直角)連線，避免斜線交錯造成混亂
+skinparam nodesep 55              ' 同層類別的水平間距
+skinparam ranksep 70              ' 上下層之間的垂直間距
+skinparam classAttributeFontSize 11
+skinparam classFontSize 13
+skinparam groupInheritance 2      ' 同一父類別的多條繼承線合併成一個三角形，減少視覺雜訊
+skinparam shadowing false
+hide empty members
+
+' =========================================================
+' 套件分三層，依賴方向由上而下：ui → mode → shape
+' =========================================================
+
+package ui {
+    class UMLEditor {
+        - Canvas canvas
+        - Map<mode.Mode, JButton> modeButtons
+        - {static} Color BTN_INACTIVE_BG
+        - {static} Color BTN_INACTIVE_FG
+        - {static} Color BTN_ACTIVE_BG
+        - {static} Color BTN_ACTIVE_FG
+        --
+        + UMLEditor()
+        - createBaseButton(String name) : JButton
+        - addModeButton(JPanel, String, mode.Mode) : void
+        - highlightActiveButton(mode.Mode activeMode) : void
+        - customizeLabel() : void
+    }
+
+    class Canvas {
+        - List<shape.Shape> shapes
+        - mode.Mode currentMode
+        - shape.Shape floatingShape
+        - int floatingSavedIndex
+        - mode.Mode defaultMode
+        - ModeChangeListener modeListener
+        --
+        + Canvas()
+        + setCurrentMode(mode.Mode) : void
+        + setModeChangeListener(ModeChangeListener) : void
+        + setDefaultMode(mode.Mode) : void
+        + returnToDefaultMode() : void
+        + addShape(shape.Shape) : void
+        + clearSelection() : void
+        + getShapes() : List<Shape>
+        + getTopShapeAt(Point) : Shape
+        + bringToFront(shape.Shape) : void
+        + floatToFront(shape.Shape) : void
+        + restoreFloating() : void
+        + groupSelected() : void
+        + ungroupSelected() : void
+        # paintComponent(Graphics) : void
+    }
+
+    ' 模式變更事件 (Observer)：Canvas 切換模式時通知 UMLEditor 更新按鈕
+    interface ModeChangeListener {
+        + onModeChanged(mode.Mode newMode) : void
+    }
+}
+
+package mode {
+    abstract class Mode {
+        # ui.Canvas canvas
+        --
+        + Mode(ui.Canvas c)
+        + mousePressed(MouseEvent) : void
+        + mouseDragged(MouseEvent) : void
+        + mouseReleased(MouseEvent) : void
+        + mouseMoved(MouseEvent) : void
+        + draw(Graphics) : void
+    }
+
+    class SelectMode {
+        - Shape currentHovered
+        - Shape draggedShape
+        - shape.Port draggedPort
+        - Point startPoint
+        - Rectangle selectionBox
+        --
+        + SelectMode(ui.Canvas c)
+        + mouseMoved(MouseEvent) : void
+        + mousePressed(MouseEvent) : void
+        + mouseDragged(MouseEvent) : void
+        + mouseReleased(MouseEvent) : void
+        + draw(Graphics) : void
+    }
+
+    class CreateObjectMode {
+        - shape.ShapeFactory factory
+        - Point startPoint
+        - Rectangle previewBox
+        --
+        + CreateObjectMode(ui.Canvas c, shape.ShapeFactory factory)
+        + mousePressed(MouseEvent) : void
+        + mouseDragged(MouseEvent) : void
+        + mouseReleased(MouseEvent) : void
+        + draw(Graphics) : void
+    }
+
+    class CreateLinkMode {
+        - shape.LinkType linkType
+        - Port startPort
+        # int currentX, currentY
+        # int startX, startY
+        # Shape sourceShape
+        - Shape hoveredShape
+        --
+        + CreateLinkMode(ui.Canvas c, shape.LinkType type)
+        + mouseMoved(MouseEvent) : void
+        + mousePressed(MouseEvent) : void
+        + mouseDragged(MouseEvent) : void
+        + mouseReleased(MouseEvent) : void
+        + draw(Graphics) : void
+    }
+}
+
+package shape {
+    abstract class Shape {
+        # int x, y
+        # int width, height
+        # boolean selected
+        # String label
+        # Color color
+        # boolean hovered
+        --
+        + Shape()
+        + move(int dx, int dy) : void
+        + setSelected(boolean) : void
+        + isSelected() : boolean
+        + isHovered() : boolean
+        + setHovered(boolean) : void
+        + isBackgroundLayer() : boolean
+        + isGroup() : boolean
+        + canCustomizeLabel() : boolean
+        + getComponents() : List<Shape>
+        + getBounds() : Rectangle
+        + setBounds(int, int, int, int) : void
+        + getPortAt(Point) : Port
+        + resize(Port, Point) : void
+        + {abstract} draw(Graphics) : void
+        + {abstract} contains(Point) : boolean
+        + getLabel() : String
+        + setLabel(String) : void
+        + getColor() : Color
+        + setColor(Color) : void
+    }
+
+    class BasicObject {
+        - ObjectType type
+        - List<Port> ports
+        - Port currentDraggingPort
+        - int fixedAnchorX, fixedAnchorY
+        --
+        + BasicObject(int x, int y, ObjectType type)
+        - updatePorts() : void
+        + setBounds(int, int, int, int) : void
+        + move(int, int) : void
+        + getPortAt(Point) : Port
+        + resize(Port, Point) : void
+        + draw(Graphics) : void
+        + contains(Point) : boolean
+        + canCustomizeLabel() : boolean
+    }
+
+    class CompositeObject {
+        - List<Shape> components
+        --
+        + CompositeObject()
+        + addComponent(Shape) : void
+        + getComponents() : List<Shape>
+        - updateBounds() : void
+        + move(int, int) : void
+        + draw(Graphics) : void
+        + contains(Point) : boolean
+        + resize(Port, Point) : void
+        + isGroup() : boolean
+    }
+
+    class ConnectionLine {
+        - Port startPort
+        - Port endPort
+        - LinkType linkType
+        --
+        + ConnectionLine(Port start, Port end, LinkType type)
+        - drawArrow(Graphics, int, int, int, int) : void
+        + draw(Graphics) : void
+        + contains(Point) : boolean
+        + resize(Port, Point) : void
+        + isBackgroundLayer() : boolean
+        + getBounds() : Rectangle
+    }
+
+    class Port {
+        - Shape parent
+        - int x, y
+        - {static} int portSize
+        --
+        + Port(Shape parent)
+        + getParent() : Shape
+        + getX() : int
+        + getY() : int
+        + setPosition(int, int) : void
+        + contains(Point) : boolean
+        + draw(Graphics) : void
+    }
+
+    ' ===== 工廠方法模式 (Factory Method Pattern) =====
+    abstract class ShapeFactory {
+        + orderShape(int, int, int, int) : BasicObject
+        # {abstract} createShape(int x, int y) : BasicObject
+        + {abstract} drawPreview(Graphics, Rectangle) : void
+    }
+    class RectFactory {
+        # createShape(int, int) : BasicObject
+        + drawPreview(Graphics, Rectangle) : void
+    }
+    class OvalFactory {
+        # createShape(int, int) : BasicObject
+        + drawPreview(Graphics, Rectangle) : void
+    }
+
+    ' ===== 型別 enum (取代魔術字串) =====
+    enum ObjectType {
+        RECT
+        OVAL
+    }
+    enum LinkType {
+        ASSOCIATION
+        GENERALIZATION
+        COMPOSITION
+    }
+}
+
+' =========================================================
+' 關係 (relationships)
+' =========================================================
+
+' ---- 繼承 (Inheritance) ----
+Mode <|-- SelectMode
+Mode <|-- CreateObjectMode
+Mode <|-- CreateLinkMode
+Shape <|-- BasicObject
+Shape <|-- ConnectionLine
+Shape <|-- CompositeObject
+ShapeFactory <|-- RectFactory
+ShapeFactory <|-- OvalFactory
+
+' ---- 組合 (擁有關係，實心菱形) ----
+UMLEditor "1" *-- "1" Canvas
+Canvas "1" *-- "*" Shape : shapes
+BasicObject "1" *-- "*" Port : owns
+CompositeObject "1" *-- "*" Shape : components
+
+' ---- 關聯 / 使用 (Association / Dependency) ----
+Canvas --> Mode : currentMode
+Canvas ..> ModeChangeListener : notifies
+UMLEditor ..> ModeChangeListener : provides lambda
+ConnectionLine "1" --> "2" Port : connects
+ShapeFactory ..> BasicObject : creates
+CreateObjectMode ..> ShapeFactory : delegates
+CreateLinkMode ..> ConnectionLine : creates
+BasicObject ..> ObjectType
+ConnectionLine ..> LinkType
+
+' ---- 進入點 ----
+class Main {
+    + {static} main(String[] args) : void
+}
+Main ..> UMLEditor : creates
+
+@enduml

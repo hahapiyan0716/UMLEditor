@@ -1,0 +1,59 @@
+@startuml UseCase_G_CustomizeLabel
+title Use Case G: 自訂標籤風格 (Customize Label Style)
+
+actor User
+participant __anUMLEditor__ as UMLEditor
+participant __aCanvas__ as Canvas
+participant __aBasicObject__ as BasicObject
+participant __aJColorChooser__ as JColorChooser
+participant __aJOptionPane__ as JOptionPane
+
+note over UMLEditor: Precondition: 當某一個基本物件處於被select的狀態時
+
+User -> UMLEditor ++ : 使用者到Edit Menu點選Label項目
+
+UMLEditor -> UMLEditor ++ : customizeLabel()
+note right of UMLEditor: 對話框屬UI層職責,已從Canvas搬到UMLEditor
+UMLEditor -> Canvas ++ : getShapes() [唯讀檢視]
+Canvas -->> UMLEditor -- : 回傳圖形清單
+UMLEditor -> BasicObject ++ : 檢查isSelected() && canCustomizeLabel()
+BasicObject -->> UMLEditor -- : (結果)
+note right of BasicObject: 用多型 canCustomizeLabel() 取代 instanceof BasicObject
+UMLEditor -> UMLEditor : target = BasicObject
+
+alt 找到被select且可自訂標籤的物件
+UMLEditor -> JOptionPane ++ : 1. 彈跳視窗Customize Label Style\n提供以下選項並預設顯示原設定：
+
+note right of JOptionPane: a. 標籤名稱(Label Name): 輸入新名稱\nb. 標籤顏色(Label Color): 變更標籤背景色
+
+User -> UMLEditor : 使用者點擊顏色按鈕
+
+UMLEditor -> JColorChooser ++ : JColorChooser.showDialog()
+JColorChooser -> User : 顯示調色盤
+User -> JColorChooser : 選擇顏色並按OK
+
+JColorChooser -->> UMLEditor -- : 回傳Color物件
+
+User -> JOptionPane : 修改標籤名稱和顏色後按OK
+
+JOptionPane -->> UMLEditor -- : 確認(OK_OPTION)
+
+UMLEditor -> BasicObject ++ : 2. 設置新的label和color
+BasicObject -> BasicObject ++ : setLabel(newLabel)\nsetColor(newColor)
+BasicObject -->> BasicObject -- : return
+BasicObject -->> UMLEditor -- : return
+UMLEditor -> Canvas ++ : 3. repaint()
+Canvas -->> UMLEditor -- : return
+Canvas -> Canvas ++ : 顯示更新後的物件
+Canvas -->> Canvas -- : return
+
+else 無符合條件的物件
+UMLEditor -> UMLEditor : 結束，無任何動作
+end
+
+alt Alternative G.1: 使用者更新標籤設定後按下Cancel
+JOptionPane -> UMLEditor: 取消
+UMLEditor -> BasicObject: 物件維持原設定不變
+end
+
+@enduml

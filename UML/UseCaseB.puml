@@ -1,0 +1,99 @@
+@startuml UseCase_B_CreateLink
+title Use Case B: 創建連線 (Creating a Link)
+note top: 規格: 從一個物件的Port連線到另一個物件的Port
+
+actor User
+participant __aUMLEditor__ as UMLEditor
+participant __aCanvas__ as Canvas
+participant __aCreateLinkMode__ as CreateLinkMode
+participant __aBasicObject1__ as BasicObject1
+participant __aPort1__ as Port1
+participant __aPort2__   as Port2
+participant __aBasicObject2__ as BasicObject2
+participant __aConnectionLine__ as ConnectionLine
+
+note over User: Precondition: Association/Generalization/Composition按鈕被按下
+
+== Step 1: 在Port上按下滑鼠 ==
+
+User -> Canvas ++ : 1. 在某個Rect/Oval物件的Port範圍內按下左鍵(不放開)
+Canvas -> CreateLinkMode ++ : mousePressed(MouseEvent)
+CreateLinkMode -> Canvas ++ : 遍歷所有圖形
+Canvas -->> CreateLinkMode -- : return
+CreateLinkMode -> BasicObject1 ++ : getPortAt(Point)
+BasicObject1 -> Port1 ++ : contains(Point)
+Port1 -->> BasicObject1 -- : return true
+BasicObject1 -->> CreateLinkMode -- : return Port1
+CreateLinkMode -> CreateLinkMode ++ : startPort = Port1\nsourceShape = BasicObject1
+CreateLinkMode -->> CreateLinkMode -- : return
+CreateLinkMode -->> Canvas -- : return
+
+alt Alternative B.1: mousePressed座標不在任何物件Port範圍內
+CreateLinkMode -> CreateLinkMode ++ : startPort = null\nsourceShape = null
+CreateLinkMode -->> CreateLinkMode -- : return
+end
+
+== Step 2: 拖曳滑鼠(需要有有效的startPort) ==
+
+User -> Canvas : 2. 不放開左鍵，進行拖曳(drag)
+
+Canvas -> CreateLinkMode ++ : mouseDragged(MouseEvent)
+
+alt startPort有效(不為null)
+CreateLinkMode -> Canvas ++ : 清除所有圖形的hovered狀態
+Canvas -->> CreateLinkMode -- : return
+CreateLinkMode -> Canvas ++ : getTopShapeAt(currentPoint)
+Canvas -> BasicObject2 ++ : contains(Point)
+BasicObject2 -->> Canvas -- : return true
+Canvas -->> CreateLinkMode -- : return BasicObject2
+CreateLinkMode -> BasicObject2 ++ : setHovered(true)
+BasicObject2 -->> CreateLinkMode -- : return
+CreateLinkMode -> Canvas ++ : repaint()
+Canvas -->> CreateLinkMode -- : return
+Canvas -> Canvas : 顯示從startPort到當前座標的預覽線
+
+else startPort為null(在空白區域按下)
+CreateLinkMode -->> Canvas -- : return (直接結束，不進行任何操作)
+end
+CreateLinkMode -->> Canvas -- : return
+
+== Step 3: 放開滑鼠(需要有有效的startPort和終點Port) ==
+
+User -> Canvas : 3. 拖曳到另一個Rect/Oval物件的Port放開左鍵
+
+Canvas -> CreateLinkMode ++ : mouseReleased(MouseEvent)
+
+alt startPort有效(不為null)
+CreateLinkMode -> Canvas ++ : 遍歷所有圖形尋找endPort
+Canvas -->> CreateLinkMode -- : return
+CreateLinkMode -> BasicObject2 ++ : getPortAt(releasePoint)
+BasicObject2 -> Port2 ++ : contains(Point)
+Port2 -->> BasicObject2 -- : return true
+BasicObject2 -->> CreateLinkMode -- : return Port2
+CreateLinkMode -> CreateLinkMode ++ : endPort = Port2\n檢查: startPort.parent != endPort.parent
+CreateLinkMode -->> CreateLinkMode -- : return
+
+alt 終點有效 && 不能自己連自己(檢查通過)
+CreateLinkMode -> ConnectionLine ++ : new ConnectionLine(Port1, Port2, LinkType.ASSOCIATION)
+ConnectionLine -->> CreateLinkMode -- : return ConnectionLine
+note right of CreateLinkMode: 連線直接 new,不經工廠(連線非工廠方法的對象)
+CreateLinkMode -> Canvas ++ : addShape(connectionLine)
+Canvas -->> CreateLinkMode -- : return
+CreateLinkMode -> Canvas ++ : repaint()
+Canvas -->> CreateLinkMode -- : return
+CreateLinkMode -> Canvas ++ : returnToDefaultMode()
+Canvas -> Canvas : setCurrentMode(defaultMode = SelectMode)
+Canvas -> UMLEditor : onModeChanged(SelectMode) [事件→highlightActiveButton 更新按鈕]
+Canvas -->> CreateLinkMode -- : return
+
+else 終點無效或自己連自己(檢查失敗)
+CreateLinkMode -> CreateLinkMode ++ : 不建立任何連線物件
+CreateLinkMode -->> CreateLinkMode -- : return
+end
+
+else startPort為null(在空白區域按下)
+CreateLinkMode -->> Canvas -- : return (操作被中止，不進行任何處理)
+end
+CreateLinkMode -->> Canvas -- : return
+
+@enduml

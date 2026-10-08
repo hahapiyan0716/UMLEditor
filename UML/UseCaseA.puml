@@ -1,0 +1,73 @@
+@startuml UseCase_A_CreateObject
+title Use Case A: 創建物件 (Creating an object)
+note top: 規格: 使用者先點擊Rect或Oval按鈕，然後在Canvas上拖曳建立物件
+
+actor User
+participant __aUMLEditor__ as UMLEditor
+participant __aCanvas__ as Canvas
+participant __aCreateObjectMode__ as CreateObjectMode
+participant __aRectFactory__    as ShapeFactory
+participant __aBasicObject__ as BasicObject
+'participant __SelectMode__ as SelectMode
+
+== Step 1: 點擊Rect按鈕 ==
+
+User -> UMLEditor ++ : 1. 在Rect或Oval按鈕上按下左鍵
+
+UMLEditor -> UMLEditor ++ : 原模式按鈕顏色復原(變白色)
+UMLEditor -->> UMLEditor -- : return
+UMLEditor -> UMLEditor ++ : 2. 目標Rect/Oval按鈕變黑
+UMLEditor -->> UMLEditor -- : return
+
+User -> UMLEditor : 3. 放開左鍵
+
+UMLEditor -> Canvas ++ : setCurrentMode(CreateObjectMode)
+Canvas -->> UMLEditor -- : return
+UMLEditor -->> User -- : return
+
+== Step 2: 在Canvas上拖曳建立物件 ==
+
+User -> Canvas ++ : 4. 在Canvas上按下左鍵(不放開)
+
+Canvas -> CreateObjectMode ++ : mousePressed(MouseEvent)
+CreateObjectMode -> CreateObjectMode ++ : startPoint = 座標\npreviewBox初始化
+CreateObjectMode -->> CreateObjectMode -- : return
+CreateObjectMode -->> Canvas -- : return
+
+User -> Canvas : 5. 拖曳滑鼠(drag)
+
+Canvas -> CreateObjectMode ++ : mouseDragged(MouseEvent)
+CreateObjectMode -> CreateObjectMode ++ : 更新previewBox大小與位置
+CreateObjectMode -->> CreateObjectMode -- : return
+CreateObjectMode -> Canvas ++ : repaint()
+Canvas -->> CreateObjectMode -- : return
+CreateObjectMode -->> Canvas -- : return
+Canvas -> Canvas : 顯示灰色預覽框(拖曳軌跡)
+
+User -> Canvas : 6. 放開左鍵(mouse released)
+
+Canvas -> CreateObjectMode ++ : mouseReleased(MouseEvent)
+CreateObjectMode -> ShapeFactory ++ : orderShape(x, y, width, height)
+ShapeFactory -> ShapeFactory ++ : createShape(x, y) [工廠方法]
+ShapeFactory -> BasicObject ++ : new BasicObject(x, y, ObjectType.RECT)
+BasicObject -->> ShapeFactory -- : return
+ShapeFactory -->> ShapeFactory -- : return BasicObject
+ShapeFactory -> BasicObject ++ : setBounds(x, y, width, height)
+BasicObject -->> ShapeFactory -- : return
+ShapeFactory -->> CreateObjectMode -- : return BasicObject
+CreateObjectMode -> Canvas ++ : addShape(basicObject)
+Canvas -->> CreateObjectMode -- : return
+Canvas -> Canvas ++ : 7. 在畫布區內繪製Rect或Oval物件
+Canvas -->> Canvas -- : return
+Canvas -> Canvas ++ : repaint()
+Canvas -->> Canvas -- : return
+CreateObjectMode -> Canvas ++ : returnToDefaultMode()
+Canvas -> Canvas ++ : setCurrentMode(defaultMode = SelectMode)
+Canvas -->> Canvas -- : return
+Canvas -> UMLEditor ++ : onModeChanged(SelectMode) [模式變更事件]
+UMLEditor -> UMLEditor ++ : 8. highlightActiveButton(): 其他按鈕復原, Select按鈕變黑
+UMLEditor -->> UMLEditor -- : return
+UMLEditor -->> Canvas -- : return
+Canvas -->> CreateObjectMode -- : return
+
+@enduml

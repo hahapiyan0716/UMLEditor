@@ -1,0 +1,61 @@
+@startuml UseCase_E_MoveObjects
+title Use Case E: 移動物件 (Move objects)
+
+actor User
+participant __anUMLEditor__ as UMLEditor
+participant __aCanvas__ as Canvas
+participant __aSelectMode__ as SelectMode
+participant __aBasicObject__ as BasicObject
+'participant __aPort__ as Port
+participant __aConnectionLine__ as ConnectionLine
+
+note over UMLEditor: Precondition: Select按鈕被按下
+note top: 規格: 物件重疊時按照depth次序繪製\n最後選取的物件應被繪製於最上層
+
+User -> Canvas ++ : 1. 在編輯區某物件(含composite)範圍內按下左鍵不放
+
+Canvas -> SelectMode ++ : mousePressed(MouseEvent)
+SelectMode -> Canvas ++ : getTopShapeAt(Point)
+Canvas -> BasicObject ++ : 回傳被點擊的物件
+BasicObject -->> Canvas -- : return
+Canvas -->> SelectMode -- : return
+SelectMode -> BasicObject ++ : 設置為被選取(若尚未選取)
+BasicObject -->> SelectMode -- : return
+SelectMode -> Canvas ++ : floatToFront(BasicObject)
+Canvas -->> SelectMode -- : return
+note right of Canvas: 移到清單末端=視覺最上層,取代舊的 setDepth(0)
+SelectMode -> SelectMode ++ : draggedShape = BasicObject\nstartPoint = 座標
+SelectMode -->> SelectMode -- : return
+
+User -> Canvas : 2. 不放開左鍵進行拖曳(drag)
+
+Canvas -> SelectMode ++ : mouseDragged(MouseEvent)
+SelectMode -> SelectMode ++ : draggedPort==null && draggedShape!=null
+SelectMode -->> SelectMode -- : (檢查)
+SelectMode -> SelectMode ++ : 計算dx = currentX - startPoint.x\ndy = currentY - startPoint.y
+SelectMode -->> SelectMode -- : return
+SelectMode -> BasicObject ++ : move(dx, dy)
+BasicObject -> BasicObject ++ : x += dx; y += dy;
+BasicObject -->> BasicObject -- : return
+BasicObject -> BasicObject ++ : updatePorts()
+BasicObject -->> BasicObject -- : return
+BasicObject -->> SelectMode -- : return
+SelectMode -> BasicObject ++ : 所有Port位置已更新
+BasicObject -->> SelectMode -- : (確認)
+SelectMode -> Canvas : repaint()
+SelectMode -->> Canvas -- : return
+Canvas -> Canvas ++ : 顯示移動中的圖形
+Canvas -->> Canvas -- : return
+
+User -> Canvas : 3. 拖曳到座標x,y放開左鍵
+
+Canvas -> SelectMode ++ : mouseReleased(MouseEvent)
+SelectMode -> SelectMode ++ : 4. 物件被移動到新座標x,y
+SelectMode -->> SelectMode -- : return
+SelectMode -> Canvas : clearStates()
+SelectMode -> Canvas : repaint()
+SelectMode -->> Canvas -- : return
+
+note right of Canvas: 5. 所有連結到該基本物件的\nconnection links全部重新繪製\n(因為Port位置已更新)\n連線會自動跟著Port移動
+
+@enduml

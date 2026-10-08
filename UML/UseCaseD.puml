@@ -1,0 +1,77 @@
+@startuml UseCase_D_GroupUngroup
+title Use Case D: 群組/解散群組物件 (Group/Ungroup)
+
+actor User
+participant __anUMLEditor__ as UMLEditor
+participant __aCanvas__  as Canvas
+participant __aCompositeObject__ as CompositeObject
+participant __aBasicObject1__ as BasicObject1
+participant __aBasicObject2__ as BasicObject2
+
+note over UMLEditor: Precondition: Select按鈕被按下
+
+== Case 1: 群組物件 ==
+
+User -> UMLEditor: 當有≥2個物件處於被select狀態時
+User -> UMLEditor: 使用者到Edit Menu點選Group選項
+
+UMLEditor -> Canvas ++ : groupSelected()
+Canvas -> Canvas ++ : 1. 遍歷所有圖形找出被select的(selected=true)
+Canvas -->> Canvas -- : return
+Canvas -> Canvas ++ : 2. 檢查selectedShapes.size() >= 2
+Canvas -->> Canvas -- : return
+
+alt 數量足夠
+Canvas -> CompositeObject ++ : new CompositeObject()
+CompositeObject -->> Canvas -- : (建立)
+Canvas -> Canvas ++ : 遍歷selectedShapes清單
+Canvas -->> Canvas -- : (開始迴圈)
+
+loop 每個被選取的物件
+Canvas -> BasicObject1 ++ : setSelected(false)
+BasicObject1 -->> Canvas -- : return
+Canvas -> CompositeObject ++ : addComponent(BasicObject1)
+CompositeObject -> CompositeObject ++ : components.add()\nupdateBounds()
+CompositeObject -->> CompositeObject -- : return
+CompositeObject -->> Canvas -- : return
+Canvas -> Canvas ++ : shapes.remove(BasicObject1)
+Canvas -->> Canvas -- : return
+end
+
+Canvas -> CompositeObject ++ : setSelected(true)
+CompositeObject -->> Canvas -- : return
+Canvas -> Canvas ++ : 3. shapes.add(CompositeObject)
+Canvas -->> Canvas -- : return
+Canvas -> Canvas ++ : repaint()
+Canvas -->> Canvas -- : return
+
+else Alternative D.1: 只有1個物件被選取
+Canvas -> Canvas : 不會有任何動作
+end
+
+== Case 2: 解散群組 ==
+
+User -> UMLEditor: 當唯一1個composite物件被select時
+User -> UMLEditor: 使用者到Edit Menu點選Ungroup選項
+
+UMLEditor -> Canvas: ungroupSelected()
+Canvas -> Canvas: 1. 遍歷所有圖形找出被select的
+Canvas -> Canvas: 2. 檢查selectedShapes.size()==1 && isGroup()
+note right of Canvas: 用多型 isGroup() 取代 instanceof CompositeObject
+
+alt 條件符合 (是群組)
+Canvas -> Canvas: shapes.remove(composite)
+Canvas -> CompositeObject: getComponents() [Shape 多型介面]
+CompositeObject -> Canvas: 回傳components清單
+
+loop 每個子圖形
+Canvas -> BasicObject1: 3. shapes.add(BasicObject1)
+end
+
+Canvas -> Canvas: repaint()
+
+else Alternative D.2: ≥2個物件被選取或非群組
+Canvas -> Canvas: 不會有任何動作
+end
+
+@enduml

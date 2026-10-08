@@ -1,0 +1,92 @@
+@startuml UseCase_C_SelectUnselect
+title Use Case C: 選取/取消選取單個物件 (Select/Unselect)
+note top: 規格: 當物件被select/hover時，顯示ports；未被select/hover時，ports隱藏
+
+actor User
+participant __anUMLEditor__ as UMLEditor
+participant __aCanvas__ as Canvas
+participant __aSelectMode__ as SelectMode
+participant __aBasicObject__ as BasicObject
+participant __aPort__ as Port
+
+note over UMLEditor: Precondition: Select按鈕被按下
+
+== Case 1: 選取單個物件 ==
+
+User -> Canvas ++ : 1. 將滑鼠移動至某物件範圍內
+
+Canvas -> SelectMode ++ : mouseMoved(MouseEvent)
+SelectMode -> Canvas ++ : getTopShapeAt(Point)
+Canvas -> BasicObject ++ : contains(Point)
+BasicObject -->> Canvas -- : 回傳true
+Canvas -->> SelectMode -- : 回傳BasicObject
+SelectMode -> BasicObject ++ : setHovered(true)
+BasicObject -->> SelectMode -- : return
+SelectMode -> BasicObject ++ : 2. 將此物件的ports做明確顯示
+BasicObject -->> SelectMode -- : return
+SelectMode -> Canvas : repaint()
+SelectMode -->> Canvas -- : return
+Canvas -> BasicObject ++ : draw(Graphics)
+BasicObject -->> Canvas -- : return
+
+User -> Canvas : 3. 使用者點選該物件
+
+Canvas -> SelectMode ++ : mousePressed(MouseEvent)
+
+note right of SelectMode: 優先檢查順序 (Priority):\n檢查點擊是否落在被select/hover的物件的Port\n檢查點擊是否落在任何圖形\n都沒有則進入框選狀態
+
+SelectMode -> Canvas ++ : 優先檢查: 是否點擊到Port?
+Canvas -> BasicObject ++ : getPortAt(Point)
+BasicObject -->> Canvas -- : 回傳Port或null
+Canvas -->> SelectMode -- : (檢查完成)
+alt 未點到Port
+SelectMode -> Canvas ++ : 次優先檢查: 是否點擊到圖形?
+Canvas -> BasicObject ++ : getTopShapeAt(Point)
+BasicObject -->> Canvas -- : 回傳BasicObject
+Canvas -->> SelectMode -- : return
+SelectMode -> Canvas ++ : clearSelection()
+Canvas -->> SelectMode -- : return
+SelectMode -> Canvas : 若有其他物件被select則取消
+SelectMode -> BasicObject ++ : setSelected(true)
+BasicObject -->> SelectMode -- : return
+SelectMode -> Canvas ++ : floatToFront(BasicObject)
+Canvas -->> SelectMode -- : return
+note right of Canvas: z-order 改用清單順序(移到清單末端=最上層),取代舊的 setDepth(0)
+else 都沒點到: 進入框選狀態
+note right of SelectMode: 點擊座標不在任何Port或圖形上\n初始化selectionBox準備框選
+end
+SelectMode -> Canvas : repaint()
+SelectMode -->> Canvas -- : return
+
+== Case 2: 框選多個物件 ==
+
+note over SelectMode: 進入框選狀態的條件:\n當mousePressed時無法點到Port且無法點到任何圖形\n則初始化selectionBox進入框選模式
+
+User -> Canvas: 1. 在編輯區座標x1,y1按住左鍵不放(x1,y1不屬於任何物件)
+
+Canvas -> SelectMode: mousePressed(MouseEvent)
+SelectMode -> Canvas: 優先檢查Port → null
+SelectMode -> Canvas: 次檢查圖形 → null
+SelectMode -> Canvas: clearSelection()
+SelectMode -> SelectMode: 初始化selectionBox進入框選狀態
+
+User -> Canvas: 2.拖曳到座標x2,y2放開左鍵
+
+Canvas -> SelectMode: mouseDragged(MouseEvent)
+SelectMode -> SelectMode: selectionBox != null(框選狀態)
+SelectMode -> SelectMode: 更新selectionBox的邊界
+SelectMode -> Canvas: repaint()
+Canvas -> Canvas: 顯示半透明藍色框和藍色邊框
+
+Canvas -> SelectMode: mouseReleased(MouseEvent)
+SelectMode -> SelectMode: 3. (x1,y1,x2,y2)形成四方形區域
+SelectMode -> SelectMode: 遍歷所有圖形
+SelectMode -> BasicObject: getBounds()
+alt 圖形完全落於選取框
+BasicObject -> BasicObject: setSelected(true)
+else Alternative C.3: 沒有物件完全落於框內
+SelectMode -> Canvas: unselect所有物件
+end
+SelectMode -> Canvas: repaint()
+
+@enduml
